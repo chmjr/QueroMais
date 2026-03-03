@@ -1,0 +1,138 @@
+require('dotenv').config();
+const express = require('express');
+const { Groq } = require('groq-sdk');
+const axios = require('axios');
+
+const app = express();
+app.use(express.json());
+
+const groq = new Groq({
+    apiKey: process.env.GROQ_API_KEY
+});
+
+// Evolution API Configuration
+const EVOLUTION_API_URL = process.env.EVOLUTION_API_URL;
+const EVOLUTION_INSTANCE = process.env.EVOLUTION_INSTANCE;
+const EVOLUTION_API_KEY = process.env.EVOLUTION_API_KEY;
+
+// Contexto do Especialista Quero+ (Extraído e sintetizado do Google Drive do Velmora)
+const SYSTEM_PROMPT = `Você é a Larissa, uma Atendente Especialista super humana, simpática e prestativa do laboratório Velmora. Seu objetivo é ajudar as pessoas a transformarem suas vidas através do suplemento Quero+.
+Seu tom de voz deve ser 100% natural, como se estivesse conversando no WhatsApp com uma amiga ou cliente conhecida. 
+
+COMPORTAMENTO OBRIGATÓRIO (HUMANIZAÇÃO):
+- Nunca envie textos gigantes ou parecer um robô do ChatGPT. Seja extremamente natural.
+- Use palavras comuns de WhatsApp: "entendi", "imagina", "nossa", "olha só", "com certeza", "rs", "kkk" (se couber).
+- Use letras minúsculas no começo de algumas frases informais se ajudar na naturalidade, mas mantenha a boa educação.
+- Fale uma ou duas coisas por vez. Não descarregue todas as informações de uma vez.
+- Sempre termine suas mensagens com uma pergunta amigável para manter o cliente engajado (Ex: "Ficou com alguma dúvida?", "Você já usa algum suplemento hoje?", "Quer que eu te mande o link do combo mais vendido?").
+- Demonstre profunda empatia se o cliente relatar cansaço, estresse ou problemas de libido ("sei bem como é desgastante...", "nossa, isso costuma afetar muito a nossa rotina, né?").
+
+1. O que é o Quero+: Suplemento 100% natural em pó para preparo de bebida sabor frutas vermelhas. Conhecido como a "alternativa natural sem os efeitos colaterais químicos".
+
+2. Destaques para usar aos poucos: 
+- Feno Grego (baixa o estresse/cortisol e aumenta testosterona), Guaraná (energia pura), Gengibre e Pimenta (aceleram tudo). Rico em CoQ10.
+
+3. Como Tomar e Resultados: 
+- 1 scoopzinho (7g) na água (fria ou quente) 1x ao dia.
+- Resultados já aparecem de 7 a 10 dias (mais foco, desejo). Tratamento bom dura uns 90 dias.
+
+4. Planos e Preços (SEMPRE foque no parcelamento pra parecer mais leve):
+- 1 Mês: 12x de R$ 22,52 (à vista R$ 188,91)
+- 3 Meses: 12x de R$ 30,65 (Esse é o nosso queridinho! Mais vendido - à vista R$ 268,56)
+- 6 Meses: 12x de R$ 47,28 (à vista R$ 461,50)
+- 12 Meses: 12x de R$ 87,03 (Maior desconto - à vista R$ 851,00)
+Só mande o link quando a pessoa escolher ou demonstrar forte interesse: https://pay.hest.com.br/dd059bd0-14a2-4d01-b9c8-a5a186d3ed9c.
+
+5. Quebras de Objeções (Fale naturalmente):
+- "Tem perigo?": "Menina, é 100% natural! Muito mais seguro que esses remédios de farmácia. Se for sensível à cafeína, sugiro só meia dose nos primeiros dias."
+- "Achei caro": "Olha, se você dividir pelo mês, sai mais barato que um açaí rs. E o ganho na sua disposição e no relacionamento não tem preço!"
+- "Meu marido pode?": "Pode e deve! O ideal é os dois tomarem, fica maravilhoso pra sintonizar o casal de novo."
+
+6. Extras: 
+- Chega rapidinho (5 a 15 dias). Carlinhos Maia e Tirulipa amam a nossa marca!
+
+OBJETIVO DA SUA MENSAGEM: Criar conexão real, acolher, tirar dúvidas pingadas como uma humana e fazer a venda de forma consultiva e leve.`;
+
+app.post('/webhook', async (req, res) => {
+    try {
+        const body = req.body;
+
+        // Verifica se é um evento da Evolution API de nova mensagem
+        if (body.event === 'messages.upsert' && body.data) {
+            const message = body.data.message;
+            const remoteJid = message.key.remoteJid;
+            const isFromMe = message.key.fromMe;
+
+            // Ignorar mensagens geradas pelo próprio bot, de grupos ou status
+            if (isFromMe || remoteJid === 'status@broadcast' || remoteJid.includes('@g.us')) {
+                return res.status(200).send('Event Ignored');
+            }
+
+            // Extrai o texto do cliente de uma mensagem padrão ou de resposta estendida
+            let userText = message.message?.conversation ||
+                message.message?.extendedTextMessage?.text || '';
+
+            if (userText) {
+                console.log(`[Cliente WhatsApp -> ${remoteJid}] ${userText}`);
+
+                // Chamada de Inteligência Artificial usando a Groq
+                const chatCompletion = await groq.chat.completions.create({
+                    messages: [
+                        { role: 'system', content: SYSTEM_PROMPT },
+                        { role: 'user', content: userText }
+                    ],
+                    model: 'llama3-70b-8192', // O Llama 3 na Groq é ultra rápido e ótimo para vendas
+                    temperature: 0.7,
+                    max_tokens: 500
+                });
+
+                const iaResponse = chatCompletion.choices[0]?.message?.content;
+
+                if (iaResponse) {
+                    console.log(`[Groq IA -> ${remoteJid}] ${iaResponse}`);
+
+                    // Cálculo dinâmico do delay baseado no tamanho da mensagem (simula tempo humano digitando)
+                    const simulatedTypeTimeMs = Math.min(Math.max(1000 + (iaResponse.length * 35), 2000), 12000);
+
+                    // Avisando a Evolution API que estamos "digitando"
+                    try {
+                        await axios.post(`${EVOLUTION_API_URL}/chat/sendPresence/${EVOLUTION_INSTANCE}`, {
+                            number: remoteJid,
+                            delay: simulatedTypeTimeMs,
+                            presence: 'composing'
+                        }, { headers: { 'apikey': EVOLUTION_API_KEY } });
+                    } catch (e) {
+                        console.log("Aviso de compor mensagem falhou silenciosamente", e.message);
+                    }
+
+                    // Respondendo de volta para a Evolution API enviar via WhatsApp
+                    const evolutionSendEndpoint = `${EVOLUTION_API_URL}/message/sendText/${EVOLUTION_INSTANCE}`;
+
+                    await axios.post(evolutionSendEndpoint, {
+                        number: remoteJid,
+                        text: iaResponse,
+                        delay: simulatedTypeTimeMs // Aplicando o delay dinâmico que calculamos
+                    }, {
+                        headers: {
+                            'apikey': EVOLUTION_API_KEY,
+                            'Content-Type': 'application/json'
+                        }
+                    });
+                }
+            }
+        }
+
+        // Sepepre retorne 200 no final do processamento para a webhook queue da Evolution não estourar
+        res.status(200).json({ status: 'success' });
+
+    } catch (error) {
+        console.error('Erro no processamento do webhook:', error.response?.data || error.message);
+        res.status(500).json({ error: 'Internal Server Error' });
+    }
+});
+
+const PORT = process.env.PORT || 3000;
+app.listen(PORT, () => {
+    console.log(`✅ Especialista IA Quero+ rodando na porta ${PORT}`);
+    console.log(`📍 Webhook Evolution API Endpoint: http://localhost:${PORT}/webhook`);
+});
