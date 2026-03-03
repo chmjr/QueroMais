@@ -120,30 +120,30 @@ app.post('/webhook', async (req, res) => {
                     // Cálculo dinâmico do delay baseado no tamanho da mensagem (simula tempo humano digitando)
                     const simulatedTypeTimeMs = Math.min(Math.max(1000 + (iaResponse.length * 35), 2000), 12000);
 
-                    // Avisando a Evolution API que estamos "digitando"
-                    try {
-                        await axios.post(`${EVOLUTION_API_URL}/chat/sendPresence/${EVOLUTION_INSTANCE}`, {
-                            number: remoteJid,
-                            delay: simulatedTypeTimeMs,
-                            presence: 'composing'
-                        }, { headers: { 'apikey': EVOLUTION_API_KEY } });
-                    } catch (e) {
-                        console.log("Aviso de compor mensagem falhou silenciosamente", e.message);
-                    }
+                    // Formata o número (Limpando @s.whatsapp.net ou @lid para evitar erro 400 da Evolution)
+                    const pureNumber = remoteJid.split('@')[0];
 
                     // Respondendo de volta para a Evolution API enviar via WhatsApp
                     const evolutionSendEndpoint = `${EVOLUTION_API_URL}/message/sendText/${EVOLUTION_INSTANCE}`;
 
-                    await axios.post(evolutionSendEndpoint, {
-                        number: remoteJid,
-                        text: iaResponse,
-                        delay: simulatedTypeTimeMs // Aplicando o delay dinâmico que calculamos
-                    }, {
-                        headers: {
-                            'apikey': EVOLUTION_API_KEY,
-                            'Content-Type': 'application/json'
-                        }
-                    });
+                    try {
+                        await axios.post(evolutionSendEndpoint, {
+                            number: pureNumber, // Evolution mais recente exige apenas números puros (sem @lid)
+                            text: iaResponse,
+                            options: {
+                                delay: simulatedTypeTimeMs, // Delay agora vai dentro das options no Evolution V2+
+                                presence: 'composing' // Evolution já envia simulador de digitando por aqui V2+
+                            }
+                        }, {
+                            headers: {
+                                'apikey': EVOLUTION_API_KEY,
+                                'Content-Type': 'application/json'
+                            }
+                        });
+                    } catch (sendError) {
+                        console.error('❌ Erro enviando a mensagem (Evolution rejeitou o payload):');
+                        console.error(JSON.stringify(sendError.response?.data || sendError.message, null, 2));
+                    }
                 }
             }
         }
