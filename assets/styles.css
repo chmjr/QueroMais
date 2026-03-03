@@ -605,6 +605,18 @@ header.scrolled {
     margin-top: 8px;
 }
 
+.price-installments {
+    display: block;
+    color: var(--color-primary);
+    font-weight: 600;
+    font-size: 1.1rem;
+    margin-top: 12px;
+    background: rgba(230, 25, 75, 0.1);
+    padding: 6px 16px;
+    border-radius: 50px;
+    display: inline-block;
+}
+
 /* --- Testimonials Section --- */
 .testimonials {
     padding: 100px 0;
