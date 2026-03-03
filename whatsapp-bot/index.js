@@ -11,7 +11,14 @@ const groq = new Groq({
 });
 
 // Evolution API Configuration
-const EVOLUTION_API_URL = process.env.EVOLUTION_API_URL;
+let EVOLUTION_API_URL = process.env.EVOLUTION_API_URL || '';
+if (EVOLUTION_API_URL && !EVOLUTION_API_URL.startsWith('http')) {
+    EVOLUTION_API_URL = 'https://' + EVOLUTION_API_URL;
+}
+if (EVOLUTION_API_URL.endsWith('/')) {
+    EVOLUTION_API_URL = EVOLUTION_API_URL.slice(0, -1);
+}
+
 const EVOLUTION_INSTANCE = process.env.EVOLUTION_INSTANCE;
 const EVOLUTION_API_KEY = process.env.EVOLUTION_API_KEY;
 
