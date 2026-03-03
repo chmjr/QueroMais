@@ -127,14 +127,17 @@ app.post('/webhook', async (req, res) => {
                     const evolutionSendEndpoint = `${EVOLUTION_API_URL}/message/sendText/${EVOLUTION_INSTANCE}`;
 
                     try {
-                        await axios.post(evolutionSendEndpoint, {
-                            number: exactRemoteNumber, // Mantendo a ID exata para contas business e comuns
+                        const payload = {
+                            number: exactRemoteNumber,
                             text: iaResponse,
                             options: {
-                                delay: simulatedTypeTimeMs, // Delay agora vai dentro das options no Evolution V2+
-                                presence: 'composing' // Evolution já envia simulador de digitando por aqui V2+
+                                delay: simulatedTypeTimeMs,
+                                presence: 'composing',
+                                quoted: messageData // 🔥 TRUQUE: Enviar como "Resposta/Reply". A Evolution costuma contornar o erro 'exists: false' de JIDs @lid quando estamos amarrando a resposta a um ID de mensagem real recebido!
                             }
-                        }, {
+                        };
+
+                        await axios.post(evolutionSendEndpoint, payload, {
                             headers: {
                                 'apikey': EVOLUTION_API_KEY,
                                 'Content-Type': 'application/json'
