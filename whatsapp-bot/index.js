@@ -59,9 +59,15 @@ app.post('/webhook', async (req, res) => {
 
         // Verifica se é um evento da Evolution API de nova mensagem
         if (body.event === 'messages.upsert' && body.data) {
-            const message = body.data.message;
-            const remoteJid = message.key.remoteJid;
-            const isFromMe = message.key.fromMe;
+            // A Evolution API pode mandar um array de mensagens ou um objeto único
+            const messageData = Array.isArray(body.data?.message) ? body.data.message[0] : body.data?.message;
+            if (!messageData || !messageData.key) {
+                console.log("Recebido payload sem a chave da mensagem, ignorando.");
+                return res.status(200).send('Event Ignored');
+            }
+
+            const remoteJid = messageData.key.remoteJid;
+            const isFromMe = messageData.key.fromMe;
 
             // Ignorar mensagens geradas pelo próprio bot, de grupos ou status
             if (isFromMe || remoteJid === 'status@broadcast' || remoteJid.includes('@g.us')) {
@@ -69,8 +75,8 @@ app.post('/webhook', async (req, res) => {
             }
 
             // Extrai o texto do cliente de uma mensagem padrão ou de resposta estendida
-            let userText = message.message?.conversation ||
-                message.message?.extendedTextMessage?.text || '';
+            let userText = messageData.message?.conversation ||
+                messageData.message?.extendedTextMessage?.text || '';
 
             if (userText) {
                 console.log(`[Cliente WhatsApp -> ${remoteJid}] ${userText}`);
