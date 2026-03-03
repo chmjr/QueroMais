@@ -130,14 +130,12 @@ app.post('/webhook', async (req, res) => {
                         const payload = {
                             number: exactRemoteNumber,
                             text: iaResponse,
-                            options: {
-                                delay: simulatedTypeTimeMs,
-                                presence: 'composing',
-                                quoted: messageData // 🔥 TRUQUE: Enviar como "Resposta/Reply". A Evolution costuma contornar o erro 'exists: false' de JIDs @lid quando estamos amarrando a resposta a um ID de mensagem real recebido!
-                            }
                         };
 
-                        await axios.post(evolutionSendEndpoint, payload, {
+                        // 🔥 A bala de prata definitiva para a v2 e seus erros "@lid exists: false"
+                        const sendUrlWithFlag = `${evolutionSendEndpoint}?checkNumber=false`;
+
+                        await axios.post(sendUrlWithFlag, payload, {
                             headers: {
                                 'apikey': EVOLUTION_API_KEY,
                                 'Content-Type': 'application/json'
@@ -151,7 +149,7 @@ app.post('/webhook', async (req, res) => {
             }
         }
 
-        // Sepepre retorne 200 no final do processamento para a webhook queue da Evolution não estourar
+        // Sempre retorne 200 no final do processamento para a webhook queue da Evolution não estourar
         res.status(200).json({ status: 'success' });
 
     } catch (error) {
