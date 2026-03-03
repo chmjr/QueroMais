@@ -100,7 +100,7 @@ app.post('/webhook', async (req, res) => {
                         { role: 'system', content: SYSTEM_PROMPT },
                         { role: 'user', content: userText }
                     ],
-                    model: 'llama3-70b-8192', // O Llama 3 na Groq é ultra rápido e ótimo para vendas
+                    model: 'llama3-8b-8192', // O Llama 3 8B na Groq é ultra rápido e ótimo para interações curtas de vendas
                     temperature: 0.7,
                     max_tokens: 500
                 });
