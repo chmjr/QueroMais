@@ -244,7 +244,7 @@ header.scrolled {
     position: relative;
     padding-top: 100px;
     overflow: hidden;
-    background-image: url('https://pages.greatpages.com.br/queromais.pages.net.br-queromaisintense/1772551495/imagens/desktop/3526973_1_177254354469a6de385ff12.png');
+    background-image: url('./hero-bg.png');
     background-size: cover;
     background-position: center;
     background-attachment: fixed;
