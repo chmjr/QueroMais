@@ -120,15 +120,15 @@ app.post('/webhook', async (req, res) => {
                     // Cálculo dinâmico do delay baseado no tamanho da mensagem (simula tempo humano digitando)
                     const simulatedTypeTimeMs = Math.min(Math.max(1000 + (iaResponse.length * 35), 2000), 12000);
 
-                    // Formata o número (Limpando @s.whatsapp.net ou @lid para evitar erro 400 da Evolution)
-                    const pureNumber = remoteJid.split('@')[0];
+                    // Usamos a ID remota exata da pessoa que nos mandou mensagem (@lid, @s.whatsapp.net ou @g.us)
+                    const exactRemoteNumber = remoteJid;
 
                     // Respondendo de volta para a Evolution API enviar via WhatsApp
                     const evolutionSendEndpoint = `${EVOLUTION_API_URL}/message/sendText/${EVOLUTION_INSTANCE}`;
 
                     try {
                         await axios.post(evolutionSendEndpoint, {
-                            number: pureNumber, // Evolution mais recente exige apenas números puros (sem @lid)
+                            number: exactRemoteNumber, // Mantendo a ID exata para contas business e comuns
                             text: iaResponse,
                             options: {
                                 delay: simulatedTypeTimeMs, // Delay agora vai dentro das options no Evolution V2+
