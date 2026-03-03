@@ -59,10 +59,23 @@ app.post('/webhook', async (req, res) => {
 
         // Verifica se é um evento da Evolution API de nova mensagem
         if (body.event === 'messages.upsert' && body.data) {
-            // A Evolution API pode mandar um array de mensagens ou um objeto único
-            const messageData = Array.isArray(body.data?.message) ? body.data.message[0] : body.data?.message;
+            let messageData = null;
+
+            // Compatibilidade com todas as versões de Evolution API V1 e V2
+            if (body.data?.message?.key) {
+                // V1
+                messageData = Array.isArray(body.data.message) ? body.data.message[0] : body.data.message;
+            } else if (body.data?.key) {
+                // V2
+                messageData = body.data;
+            } else if (Array.isArray(body.data) && body.data[0]?.key) {
+                // Variantes de array global
+                messageData = body.data[0];
+            }
+
             if (!messageData || !messageData.key) {
-                console.log("Recebido payload sem a chave da mensagem, ignorando.");
+                console.log("⚠️ Recebido payload desconhecido na aba Data, inspecionando:");
+                console.log(JSON.stringify(body, null, 2).slice(0, 1500));
                 return res.status(200).send('Event Ignored');
             }
 
