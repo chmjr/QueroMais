@@ -85,7 +85,7 @@ Você é a **Larissa**, especialista do laboratório Velmora. Você não é uma 
     * Preço: 12x R$ 87,03 (ou R$ 851,00 à vista).
     * Link: https://pay.hest.com.br/b82bd5b1-2198-4d73-a739-0e0079612df5
 
-* **Página Oficial (Para indecisos):** https://chmjr.github.io/QueroMais/
+* **Página Oficial (Para indecisos):** https://queromais.up.railway.app/
 
 ---
 
@@ -103,126 +103,126 @@ Essa correria de hoje em dia acaba com a gente, né? Chega no fim do dia e a gen
 Mas me conta, você já toma alguma vitamina hoje em dia?"`;
 
 app.post('/webhook', async (req, res) => {
-            try {
-                const body = req.body;
+    try {
+        const body = req.body;
 
-                // Verifica se é um evento da Evolution API de nova mensagem
-                if (body.event === 'messages.upsert' && body.data) {
-                    let messageData = null;
+        // Verifica se é um evento da Evolution API de nova mensagem
+        if (body.event === 'messages.upsert' && body.data) {
+            let messageData = null;
 
-                    // Compatibilidade com todas as versões de Evolution API V1 e V2
-                    if (body.data?.message?.key) {
-                        // V1
-                        messageData = Array.isArray(body.data.message) ? body.data.message[0] : body.data.message;
-                    } else if (body.data?.key) {
-                        // V2
-                        messageData = body.data;
-                    } else if (Array.isArray(body.data) && body.data[0]?.key) {
-                        // Variantes de array global
-                        messageData = body.data[0];
-                    }
+            // Compatibilidade com todas as versões de Evolution API V1 e V2
+            if (body.data?.message?.key) {
+                // V1
+                messageData = Array.isArray(body.data.message) ? body.data.message[0] : body.data.message;
+            } else if (body.data?.key) {
+                // V2
+                messageData = body.data;
+            } else if (Array.isArray(body.data) && body.data[0]?.key) {
+                // Variantes de array global
+                messageData = body.data[0];
+            }
 
-                    if (!messageData || !messageData.key) {
-                        console.log("⚠️ Recebido payload desconhecido na aba Data, inspecionando:");
-                        console.log(JSON.stringify(body, null, 2).slice(0, 1500));
-                        return res.status(200).send('Event Ignored');
-                    }
+            if (!messageData || !messageData.key) {
+                console.log("⚠️ Recebido payload desconhecido na aba Data, inspecionando:");
+                console.log(JSON.stringify(body, null, 2).slice(0, 1500));
+                return res.status(200).send('Event Ignored');
+            }
 
-                    const remoteJidOriginal = messageData.key.remoteJid;
+            const remoteJidOriginal = messageData.key.remoteJid;
 
-                    // 🚨 Revertemos: Capturamos o array de identificadores sem usar o "sender" pois senão ele conversa com ele mesmo
-                    const alternativeJid = messageData.key?.remoteJidAlt ||
-                        body.data?.remoteJidAlt ||
-                        messageData.key?.participant ||
-                        remoteJidOriginal;
+            // 🚨 Revertemos: Capturamos o array de identificadores sem usar o "sender" pois senão ele conversa com ele mesmo
+            const alternativeJid = messageData.key?.remoteJidAlt ||
+                body.data?.remoteJidAlt ||
+                messageData.key?.participant ||
+                remoteJidOriginal;
 
-                    const remoteJid = alternativeJid;
-                    const isFromMe = messageData.key.fromMe;
+            const remoteJid = alternativeJid;
+            const isFromMe = messageData.key.fromMe;
 
-                    // Log vitalício para contas LID: Nos avisa toda a anatomia do webhook caso esse erro retorne!
-                    if (remoteJidOriginal.includes('@lid') && !alternativeJid.includes('@s.whatsapp.net') && !alternativeJid.match(/^\d+$/)) {
-                        console.log(`⚠️ ATENÇÃO: Mensagem recebida de um JID oculto corporativo (@lid).`);
-                        console.log(`Salvando retrato completo do Payload para descobrirmos a chave de remetente original ("senderPn", "participant", etc):`);
-                        console.log(JSON.stringify(body, null, 2));
-                    }
+            // Log vitalício para contas LID: Nos avisa toda a anatomia do webhook caso esse erro retorne!
+            if (remoteJidOriginal.includes('@lid') && !alternativeJid.includes('@s.whatsapp.net') && !alternativeJid.match(/^\d+$/)) {
+                console.log(`⚠️ ATENÇÃO: Mensagem recebida de um JID oculto corporativo (@lid).`);
+                console.log(`Salvando retrato completo do Payload para descobrirmos a chave de remetente original ("senderPn", "participant", etc):`);
+                console.log(JSON.stringify(body, null, 2));
+            }
 
-                    // Ignorar mensagens geradas pelo próprio bot, de grupos ou status
-                    if (isFromMe || remoteJid === 'status@broadcast' || remoteJid.includes('@g.us')) {
-                        return res.status(200).send('Event Ignored');
-                    }
+            // Ignorar mensagens geradas pelo próprio bot, de grupos ou status
+            if (isFromMe || remoteJid === 'status@broadcast' || remoteJid.includes('@g.us')) {
+                return res.status(200).send('Event Ignored');
+            }
 
-                    // Extrai o texto do cliente de uma mensagem padrão ou de resposta estendida
-                    let userText = messageData.message?.conversation ||
-                        messageData.message?.extendedTextMessage?.text || '';
+            // Extrai o texto do cliente de uma mensagem padrão ou de resposta estendida
+            let userText = messageData.message?.conversation ||
+                messageData.message?.extendedTextMessage?.text || '';
 
-                    if (userText) {
-                        console.log(`[Cliente WhatsApp -> ${remoteJid}] ${userText}`);
+            if (userText) {
+                console.log(`[Cliente WhatsApp -> ${remoteJid}] ${userText}`);
 
-                        // Chamada de Inteligência Artificial usando a Groq
-                        const chatCompletion = await groq.chat.completions.create({
-                            messages: [
-                                { role: 'system', content: SYSTEM_PROMPT },
-                                { role: 'user', content: userText }
-                            ],
-                            model: 'llama-3.3-70b-versatile', // Modelo atualizado e mantido pela Groq
-                            temperature: 0.7,
-                            max_tokens: 500
-                        });
+                // Chamada de Inteligência Artificial usando a Groq
+                const chatCompletion = await groq.chat.completions.create({
+                    messages: [
+                        { role: 'system', content: SYSTEM_PROMPT },
+                        { role: 'user', content: userText }
+                    ],
+                    model: 'llama-3.3-70b-versatile', // Modelo atualizado e mantido pela Groq
+                    temperature: 0.7,
+                    max_tokens: 500
+                });
 
-                        const iaResponse = chatCompletion.choices[0]?.message?.content;
+                const iaResponse = chatCompletion.choices[0]?.message?.content;
 
-                        if (iaResponse) {
-                            console.log(`[Groq IA -> ${remoteJid}] ${iaResponse}`);
+                if (iaResponse) {
+                    console.log(`[Groq IA -> ${remoteJid}] ${iaResponse}`);
 
-                            // Cálculo dinâmico do delay baseado no tamanho da mensagem (simula tempo humano digitando)
-                            const simulatedTypeTimeMs = Math.min(Math.max(1000 + (iaResponse.length * 35), 2000), 12000);
+                    // Cálculo dinâmico do delay baseado no tamanho da mensagem (simula tempo humano digitando)
+                    const simulatedTypeTimeMs = Math.min(Math.max(1000 + (iaResponse.length * 35), 2000), 12000);
 
-                            // Usamos a ID remota exata da pessoa que nos mandou mensagem (@lid, @s.whatsapp.net ou @g.us)
-                            const exactRemoteNumber = remoteJid;
+                    // Usamos a ID remota exata da pessoa que nos mandou mensagem (@lid, @s.whatsapp.net ou @g.us)
+                    const exactRemoteNumber = remoteJid;
 
-                            // Respondendo de volta para a Evolution API enviar via WhatsApp
-                            const evolutionSendEndpoint = `${EVOLUTION_API_URL}/message/sendText/${EVOLUTION_INSTANCE}`;
+                    // Respondendo de volta para a Evolution API enviar via WhatsApp
+                    const evolutionSendEndpoint = `${EVOLUTION_API_URL}/message/sendText/${EVOLUTION_INSTANCE}`;
 
-                            try {
-                                const payload = {
-                                    number: remoteJid,
-                                    text: iaResponse,
-                                    options: {
-                                        delay: simulatedTypeTimeMs,
-                                        presence: 'composing',
-                                        quoted: messageData
-                                    }
-                                };
-
-                                // A Evolution V1 ou V2 não lê checkNumber na URL de forma consistente,
-                                // Vamos enviar com forceCheck ou checkNumber dentro das options, ou false global.
-                                const evolutionSendEndpointStr = `${EVOLUTION_API_URL}/message/sendText/${EVOLUTION_INSTANCE}`;
-
-                                await axios.post(evolutionSendEndpointStr, payload, {
-                                    headers: {
-                                        'apikey': EVOLUTION_API_KEY,
-                                        'Content-Type': 'application/json'
-                                    },
-                                    params: {
-                                        checkNumber: 'false'
-                                    }
-                                });
-                            } catch (sendError) {
-                                console.error('❌ Erro enviando a mensagem (Evolution rejeitou o payload):');
-                                console.error(JSON.stringify(sendError.response?.data || sendError.message, null, 2));
+                    try {
+                        const payload = {
+                            number: remoteJid,
+                            text: iaResponse,
+                            options: {
+                                delay: simulatedTypeTimeMs,
+                                presence: 'composing',
+                                quoted: messageData
                             }
-                        }
+                        };
+
+                        // A Evolution V1 ou V2 não lê checkNumber na URL de forma consistente,
+                        // Vamos enviar com forceCheck ou checkNumber dentro das options, ou false global.
+                        const evolutionSendEndpointStr = `${EVOLUTION_API_URL}/message/sendText/${EVOLUTION_INSTANCE}`;
+
+                        await axios.post(evolutionSendEndpointStr, payload, {
+                            headers: {
+                                'apikey': EVOLUTION_API_KEY,
+                                'Content-Type': 'application/json'
+                            },
+                            params: {
+                                checkNumber: 'false'
+                            }
+                        });
+                    } catch (sendError) {
+                        console.error('❌ Erro enviando a mensagem (Evolution rejeitou o payload):');
+                        console.error(JSON.stringify(sendError.response?.data || sendError.message, null, 2));
                     }
                 }
-
-                // Sempre retorne 200 no final do processamento para a webhook queue da Evolution não estourar
-                res.status(200).json({ status: 'success' });
-
-            } catch (error) {
-                console.error('Erro no processamento do webhook:', error.response?.data || error.message);
-                res.status(500).json({ error: 'Internal Server Error' });
             }
-        });
+        }
+
+        // Sempre retorne 200 no final do processamento para a webhook queue da Evolution não estourar
+        res.status(200).json({ status: 'success' });
+
+    } catch (error) {
+        console.error('Erro no processamento do webhook:', error.response?.data || error.message);
+        res.status(500).json({ error: 'Internal Server Error' });
+    }
+});
 
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
