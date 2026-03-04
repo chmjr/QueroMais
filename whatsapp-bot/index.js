@@ -89,8 +89,10 @@ app.post('/webhook', async (req, res) => {
             const remoteJidOriginal = messageData.key.remoteJid;
 
             // 🚨 Revertemos: Capturamos o array de identificadores sem usar o "sender" pois senão ele conversa com ele mesmo
-            const alternativeJid = body.data?.remoteJidAlt || messageData?.remoteJidAlt ||
-                messageData.key.participant || remoteJidOriginal;
+            const alternativeJid = messageData.key?.remoteJidAlt ||
+                body.data?.remoteJidAlt ||
+                messageData.key?.participant ||
+                remoteJidOriginal;
 
             const remoteJid = alternativeJid;
             const isFromMe = messageData.key.fromMe;
