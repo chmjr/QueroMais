@@ -109,6 +109,11 @@ Quando o robo já tem o sim, do cliente para a compra tem que colocar o catalogo
 Essa correria de hoje em dia acaba com a gente, né? Chega no fim do dia e a gente só quer cama (pra dormir rs).
 Mas me conta, você já toma alguma vitamina hoje em dia?"`;
 
+// Memória do bot na RAM (Volátil - zera ao reiniciar o servidor, mas mantém papo contínuo online)
+// Guarda o histórico dos últimos atendimentos para dar contexto ao robô
+const conversationMemory = {};
+const MAX_CONTEXT_MESSAGES = 15; // Lembra as últimas 15 falas (Ida e Volta)
+
 app.post('/webhook', async (req, res) => {
     try {
         const body = req.body;
@@ -165,12 +170,28 @@ app.post('/webhook', async (req, res) => {
             if (userText) {
                 console.log(`[Cliente WhatsApp -> ${remoteJid}] ${userText}`);
 
+                // Puxa o histórico desse cliente específico, ou cria um novo array vazio se for o primeiro contato
+                if (!conversationMemory[remoteJid]) {
+                    conversationMemory[remoteJid] = [];
+                }
+
+                // Salva a fala nova do usuário na memória dele
+                conversationMemory[remoteJid].push({ role: 'user', content: userText });
+
+                // Retém apenas as últimas X mensagens para o robô não ficar confuso ou gastar muitos tokens de memória
+                if (conversationMemory[remoteJid].length > MAX_CONTEXT_MESSAGES) {
+                    conversationMemory[remoteJid] = conversationMemory[remoteJid].slice(-MAX_CONTEXT_MESSAGES);
+                }
+
+                // Constrói o balão de pensamentos do robô (Regras Ocultas + Memória do que eles já conversaram)
+                const gptMessages = [
+                    { role: 'system', content: SYSTEM_PROMPT },
+                    ...conversationMemory[remoteJid]
+                ];
+
                 // Chamada de Inteligência Artificial usando a Groq
                 const chatCompletion = await groq.chat.completions.create({
-                    messages: [
-                        { role: 'system', content: SYSTEM_PROMPT },
-                        { role: 'user', content: userText }
-                    ],
+                    messages: gptMessages,
                     model: 'llama-3.3-70b-versatile', // Modelo atualizado e mantido pela Groq
                     temperature: 0.7,
                     max_tokens: 500
@@ -180,6 +201,9 @@ app.post('/webhook', async (req, res) => {
 
                 if (iaResponse) {
                     console.log(`[Groq IA -> ${remoteJid}] ${iaResponse}`);
+
+                    // Salva a resposta do robô na memória pro cliente também, para o robô lembrar do que ele próprio disse antes
+                    conversationMemory[remoteJid].push({ role: 'assistant', content: iaResponse });
 
                     // Cálculo dinâmico do delay baseado no tamanho da mensagem (simula tempo humano digitando)
                     const simulatedTypeTimeMs = Math.min(Math.max(1000 + (iaResponse.length * 35), 2000), 12000);
