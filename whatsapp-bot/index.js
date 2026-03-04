@@ -88,10 +88,8 @@ app.post('/webhook', async (req, res) => {
 
             const remoteJidOriginal = messageData.key.remoteJid;
 
-            // 🚨 Tenta capturar telefones reais expostos no payload ignorando a máscara artificial do @lid
-            const alternativeJid = body.sender || body.data?.sender ||
-                body.data?.senderPn || messageData?.senderPn ||
-                body.data?.remoteJidAlt || messageData?.remoteJidAlt ||
+            // 🚨 Revertemos: Capturamos o array de identificadores sem usar o "sender" pois senão ele conversa com ele mesmo
+            const alternativeJid = body.data?.remoteJidAlt || messageData?.remoteJidAlt ||
                 messageData.key.participant || remoteJidOriginal;
 
             const remoteJid = alternativeJid;
@@ -143,17 +141,26 @@ app.post('/webhook', async (req, res) => {
 
                     try {
                         const payload = {
-                            number: exactRemoteNumber,
+                            number: remoteJid,
                             text: iaResponse,
+                            options: {
+                                delay: simulatedTypeTimeMs,
+                                presence: 'composing',
+                                quoted: messageData
+                            }
                         };
 
-                        // 🔥 A bala de prata definitiva para a v2 e seus erros "@lid exists: false"
-                        const sendUrlWithFlag = `${evolutionSendEndpoint}?checkNumber=false`;
+                        // A Evolution V1 ou V2 não lê checkNumber na URL de forma consistente,
+                        // Vamos enviar com forceCheck ou checkNumber dentro das options, ou false global.
+                        const evolutionSendEndpointStr = `${EVOLUTION_API_URL}/message/sendText/${EVOLUTION_INSTANCE}`;
 
-                        await axios.post(sendUrlWithFlag, payload, {
+                        await axios.post(evolutionSendEndpointStr, payload, {
                             headers: {
                                 'apikey': EVOLUTION_API_KEY,
                                 'Content-Type': 'application/json'
+                            },
+                            params: {
+                                checkNumber: 'false'
                             }
                         });
                     } catch (sendError) {
