@@ -86,8 +86,22 @@ app.post('/webhook', async (req, res) => {
                 return res.status(200).send('Event Ignored');
             }
 
-            const remoteJid = messageData.key.remoteJid;
+            const remoteJidOriginal = messageData.key.remoteJid;
+
+            // 🚨 Tenta capturar telefones reais expostos no payload ignorando a máscara artificial do @lid
+            const alternativeJid = body.data?.senderPn || messageData?.senderPn ||
+                body.data?.remoteJidAlt || messageData?.remoteJidAlt ||
+                messageData.key.participant || remoteJidOriginal;
+
+            const remoteJid = alternativeJid;
             const isFromMe = messageData.key.fromMe;
+
+            // Log vitalício para contas LID: Nos avisa toda a anatomia do webhook caso esse erro retorne!
+            if (remoteJidOriginal.includes('@lid') && !alternativeJid.includes('@s.whatsapp.net') && !alternativeJid.match(/^\d+$/)) {
+                console.log(`⚠️ ATENÇÃO: Mensagem recebida de um JID oculto corporativo (@lid).`);
+                console.log(`Salvando retrato completo do Payload para descobrirmos a chave de remetente original ("senderPn", "participant", etc):`);
+                console.log(JSON.stringify(body, null, 2));
+            }
 
             // Ignorar mensagens geradas pelo próprio bot, de grupos ou status
             if (isFromMe || remoteJid === 'status@broadcast' || remoteJid.includes('@g.us')) {
