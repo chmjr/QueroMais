@@ -89,7 +89,8 @@ app.post('/webhook', async (req, res) => {
             const remoteJidOriginal = messageData.key.remoteJid;
 
             // 🚨 Tenta capturar telefones reais expostos no payload ignorando a máscara artificial do @lid
-            const alternativeJid = body.data?.senderPn || messageData?.senderPn ||
+            const alternativeJid = body.sender || body.data?.sender ||
+                body.data?.senderPn || messageData?.senderPn ||
                 body.data?.remoteJidAlt || messageData?.remoteJidAlt ||
                 messageData.key.participant || remoteJidOriginal;
 
